@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Smooth scroll ─────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Custom scrollbar — dark mode ──────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 #1e2535;
+}
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #1e2535;
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #6366f1;
+  border-radius: 2px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #818cf8;
+}
+
+/* ─── Waveform bars ──────────────────────────────────────────────── */
+.waveform-bar {
+  display: inline-block;
+  width: 3px;
+  border-radius: 2px;
+  transform-origin: bottom center;
+  background-color: #6366f1;
+  transition: background-color 0.3s ease;
+}
+
+.waveform-bar.active {
+  background-color: #6366f1;
+}
+
+.waveform-bar.idle {
+  background-color: #2d3748;
+  transform: scaleY(0.2);
+}
+
+/* Per-bar animation delay variants */
+.waveform-bar:nth-child(1) { animation-delay: 0s; }
+.waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+.waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+.waveform-bar:nth-child(4) { animation-delay: 0.15s; }
+.waveform-bar:nth-child(5) { animation-delay: 0.05s; }
+.waveform-bar:nth-child(6) { animation-delay: 0.25s; }
+.waveform-bar:nth-child(7) { animation-delay: 0.1s; }
+
+/* ─── Typewriter cursor ──────────────────────────────────────────── */
+.typewriter-cursor::after {
+  content: '▋';
+  color: #6366f1;
+  animation: blink 1s ease-in-out infinite;
+  margin-left: 1px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ─── Fade-in animation for message bubbles ─────────────────────── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* ─── Bouncing dots for typing indicator ────────────────────────── */
+@keyframes bounceDot {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.bounce-dot {
+  animation: bounceDot 1.4s ease-in-out infinite;
+}
+
+.bounce-dot:nth-child(1) { animation-delay: 0s; }
+.bounce-dot:nth-child(2) { animation-delay: 0.2s; }
+.bounce-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ─── Panel glow effect ──────────────────────────────────────────── */
+.panel-glow {
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1), 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.panel-glow-active {
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.3), 0 4px 32px rgba(99, 102, 241, 0.1);
+}
+
+/* ─── Grid background pattern ───────────────────────────────────── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(45, 55, 72, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 55, 72, 0.3) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
