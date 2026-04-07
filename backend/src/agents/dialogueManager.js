@@ -22,6 +22,23 @@ import { findByName }       from '../mock/repositories/appointmentRepo.js';
 
 const MAX_RETRIES = 2;
 
+// All four fields must be present before the call can end
+const REQUIRED_FIELDS = ['callerName', 'appointmentType', 'preferredDate', 'preferredTime'];
+
+/**
+ * Find the first required field that hasn't been collected yet.
+ * Returns { field, stepIdx } or null if everything is present.
+ */
+function getMissingField(collectedData, workflow) {
+  for (const field of REQUIRED_FIELDS) {
+    if (!collectedData[field]) {
+      const stepIdx = workflow.steps.findIndex((s) => s.field === field);
+      if (stepIdx !== -1) return { field, stepIdx };
+    }
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // System prompt builder
 // ---------------------------------------------------------------------------
@@ -176,15 +193,8 @@ export async function processTranscript(sessionId, transcript) {
 
     if (retries > MAX_RETRIES) {
       logger.warn('Max retries exceeded for step', { sessionId, currentStep });
-      const fallbackMsg = "I'm sorry, I didn't quite catch that. Let's move forward — I'll follow up if anything's missing.";
-      emit(session.wsClientId, 'llm:token', { token: fallbackMsg, sessionId });
-      emit(session.wsClientId, 'llm:complete', { response: fallbackMsg, durationMs: 0, sessionId });
-      emit(session.wsClientId, 'log:entry', {
-        level: 'error',
-        message: `Max retries exceeded at step ${currentStep}. Advancing with fallback.`,
-        timestamp: new Date().toISOString(),
-      });
-      // Advance past the stuck step to avoid infinite loop
+      // Skip this field for now — advanceStep will circle back if it's required
+      sessionService.updateSession(sessionId, { _retries: 0 });
       await advanceStep(sessionId, workflow, currentStep, null);
       return;
     }
@@ -280,6 +290,33 @@ async function advanceStep(sessionId, workflow, currentStep, transcript) {
 
   const nextStep = currentStep + 1;
   const isLastStep = nextStep >= workflow.totalSteps;
+
+  // Before finalising, ensure all required fields are present.
+  // If anything is missing (user skipped or retries were exhausted),
+  // redirect back to the step that collects it — call never ends early.
+  if (isLastStep) {
+    const missing = getMissingField(updatedData, workflow);
+    if (missing) {
+      logger.info('Required field missing before finalise — redirecting', { field: missing.field, stepIdx: missing.stepIdx });
+      sessionService.updateSession(sessionId, {
+        currentStep: missing.stepIdx,
+        collectedData: updatedData,
+        _retries: 0,
+      });
+      emit(session.wsClientId, 'session:update', { currentStep: missing.stepIdx, collectedData: updatedData });
+
+      // Ask for the missing field
+      const systemPrompt = buildSystemPrompt(workflow, missing.stepIdx, updatedData);
+      const freshSession = sessionService.getSession(sessionId);
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...(freshSession?.conversationHistory || []).filter((m) => m.role !== 'system'),
+        { role: 'user', content: `(system: still need ${missing.field})` },
+      ];
+      await runLlmTurn(sessionId, messages, workflow.steps[missing.stepIdx], undefined, false, missing.stepIdx, workflow);
+      return;
+    }
+  }
 
   sessionService.updateSession(sessionId, {
     currentStep: nextStep,
