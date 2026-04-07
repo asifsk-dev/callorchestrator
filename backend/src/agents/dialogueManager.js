@@ -17,6 +17,7 @@ import { startTimer }       from '../utils/timer.js';
 import { generateId }       from '../utils/idGenerator.js';
 import { logger }           from '../utils/logger.js';
 import * as appointmentRepo from '../mock/repositories/appointmentRepo.js';
+import { findByName }       from '../mock/repositories/appointmentRepo.js';
 
 const MAX_RETRIES = 2;
 
@@ -43,7 +44,6 @@ function buildSystemPrompt(workflow, stepIndex, collectedData) {
   let returningCallerContext = '';
   if (collectedData.callerName && stepIndex === 2) {
     try {
-      const { findByName } = await import('../mock/repositories/appointmentRepo.js');
       const matches = findByName(collectedData.callerName);
 
       if (matches.length === 1) {
