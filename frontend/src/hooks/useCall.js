@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import useCallStore from '../store/callStore.js';
 import wsService from '../services/wsService.js';
 import {
-  startCall as apiStartCall,
   endCall as apiEndCall,
   transcribeAudio,
   processTranscript,
@@ -290,24 +289,33 @@ export function useCall() {
 
     resetCall();
     wsService.connect();
-    await new Promise((r) => setTimeout(r, 300));
 
     setCallStatus('ringing');
     addLog({ level: 'info', message: 'Connecting to Aria...' });
 
     try {
-      if (wsService.isConnected()) {
-        wsService.send('call:start', { workflow: 'appointment' });
-      } else {
-        const { sessionId: id } = await apiStartCall('appointment');
-        setSessionId(id);
-        setCallStatus('active');
-        startTimer();
-        setTimeout(() => openMicRef.current(), 300);
-      }
+      // Wait for WebSocket to actually be open before sending call:start.
+      // A fixed 300ms delay is not enough in production — the WS handshake
+      // can take longer, causing the app to fall back to REST which creates
+      // a session without a wsClientId and breaks all LLM event delivery.
+      await new Promise((resolve, reject) => {
+        if (wsService.isConnected()) { resolve(); return; }
+        const timer = setTimeout(() => {
+          wsService.off('connection:open', onOpen);
+          reject(new Error('WebSocket connection timed out after 8s'));
+        }, 8000);
+        function onOpen() {
+          clearTimeout(timer);
+          wsService.off('connection:open', onOpen);
+          resolve();
+        }
+        wsService.on('connection:open', onOpen);
+      });
+
+      wsService.send('call:start', { workflow: 'appointment' });
     } catch (err) {
       setCallStatus('idle');
-      addLog({ level: 'error', message: `Failed to start call: ${err.message}` });
+      addLog({ level: 'error', message: `Failed to connect: ${err.message}` });
     }
   }, [requestPermission, resetCall, setCallStatus, setSessionId, addLog, startTimer]);
 
