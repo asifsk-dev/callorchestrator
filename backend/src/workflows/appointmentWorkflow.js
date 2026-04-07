@@ -30,7 +30,7 @@ export const steps = [
   {
     step: 0,
     field: null,
-    instruction: `Greet the caller warmly: "Hello, thanks for calling CallOrchestrator — I'm Aria, your AI scheduling assistant. I can help you book, reschedule, or cancel appointments. How can I help you today?" Then listen and understand what they need.`,
+    instruction: `Greet the caller: "Hello, this is Aria from CallOrchestrator. I can help you book, reschedule or cancel an appointment. How can I help you today?" Keep it short and natural.`,
     validate: (_data, transcript) => hasRealContent(transcript),
   },
   {

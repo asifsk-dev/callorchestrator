@@ -11,7 +11,8 @@
 
 import * as sessionService  from '../services/session.service.js';
 import * as llmAgent        from './llmAgent.js';
-import { getWorkflow }      from '../workflows/workflowRegistry.js';
+import { getWorkflow }         from '../workflows/workflowRegistry.js';
+import { APPOINTMENT_TYPES }   from '../workflows/appointmentWorkflow.js';
 import { emitToClient }     from '../wsServer.js';
 import { startTimer }       from '../utils/timer.js';
 import { generateId }       from '../utils/idGenerator.js';
@@ -66,12 +67,14 @@ function buildSystemPrompt(workflow, stepIndex, collectedData) {
     `- No filler phrases like "Great!", "Perfect!", "Of course!", "Certainly!" or "Sure thing!".`,
     `- Never use the caller's name more than once per conversation — it sounds robotic.`,
     `- Never invent options or lists unless the current task explicitly instructs you to read out a list (e.g. appointment types).`,
-    `- You only handle appointment scheduling. If the caller asks about anything else, politely say you can only help with booking appointments.`,
+    `- You only handle appointment scheduling. If the caller asks what types of appointments are available, read out the list naturally. If they ask about anything unrelated, politely say you can only help with booking appointments.`,
     `- If the caller's answer is unclear, a filler sound ("uh", "um", "huh"), too short, or doesn't answer the question, ask the same question again differently — never advance.`,
     `- Speech recognition sometimes mishears words. Use context to correct obvious errors (e.g. "apartment" likely means "appointment").`,
-    `- No bullet points, markdown, or lists — plain spoken words only.`,
-    `- Sound natural and human, not scripted. Short pauses in thought are fine.`,
+    `- No bullet points, markdown, special characters, dashes, or symbols — plain spoken words only. Write exactly what you would say out loud on a phone call.`,
+    `- Keep responses short. One sentence is ideal. Two at most.`,
+    `- Sound natural and human, not scripted.`,
     `- Only introduce yourself as Aria on the very first turn of the call.`,
+    `Available appointment types (share these if asked): ${APPOINTMENT_TYPES.join(', ')}.`,
     `Current task: ${step.instruction}`,
     dataContext,
     returningCallerContext,
