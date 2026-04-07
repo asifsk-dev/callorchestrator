@@ -37,6 +37,26 @@ function buildSystemPrompt(workflow, stepIndex, collectedData) {
     ? `\n\nData collected so far:\n${JSON.stringify(collectedData, null, 2)}`
     : '';
 
+  // If we have the caller's name and are on the appointment type step,
+  // look up their history so Aria can personalise the response.
+  // If multiple records match the name, require booking ref verification first.
+  let returningCallerContext = '';
+  if (collectedData.callerName && stepIndex === 2) {
+    try {
+      const { findByName } = await import('../mock/repositories/appointmentRepo.js');
+      const matches = findByName(collectedData.callerName);
+
+      if (matches.length === 1) {
+        // Unique match — safe to personalise
+        const past = matches[0];
+        returningCallerContext = `\n\nReturning caller context: ${collectedData.callerName} has one previous appointment on record — type: "${past.appointmentType}", date: ${past.preferredDate}. Mention this naturally when offering appointment types.`;
+      } else if (matches.length > 1) {
+        // Multiple records with same name — must verify identity first
+        returningCallerContext = `\n\nData privacy notice: Multiple records found for the name "${collectedData.callerName}". Do NOT reveal any appointment details. Instead, ask the caller: "For security, could you share your previous booking reference number?" If they provide it and it matches (booking refs look like APT-XXXX), then personalise. If they don't have one, treat them as a new caller.`;
+      }
+    } catch { /* ignore lookup errors */ }
+  }
+
   return [
     `You are Aria, a friendly receptionist on a phone call. Keep every reply to ONE short sentence — like a real human on a call.`,
     `Rules:`,
@@ -45,7 +65,7 @@ function buildSystemPrompt(workflow, stepIndex, collectedData) {
     `- Never confirm what you already know before asking the next question — just ask it directly.`,
     `- No filler phrases like "Great!", "Perfect!", "Of course!", "Certainly!" or "Sure thing!".`,
     `- Never use the caller's name more than once per conversation — it sounds robotic.`,
-    `- Never invent options or lists. Only ask open questions and collect what the caller says.`,
+    `- Never invent options or lists unless the current task explicitly instructs you to read out a list (e.g. appointment types).`,
     `- You only handle appointment scheduling. If the caller asks about anything else, politely say you can only help with booking appointments.`,
     `- If the caller's answer is unclear, a filler sound ("uh", "um", "huh"), too short, or doesn't answer the question, ask the same question again differently — never advance.`,
     `- Speech recognition sometimes mishears words. Use context to correct obvious errors (e.g. "apartment" likely means "appointment").`,
@@ -54,6 +74,7 @@ function buildSystemPrompt(workflow, stepIndex, collectedData) {
     `- Only introduce yourself as Aria on the very first turn of the call.`,
     `Current task: ${step.instruction}`,
     dataContext,
+    returningCallerContext,
   ].join('\n');
 }
 
