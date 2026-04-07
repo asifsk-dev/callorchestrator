@@ -7,7 +7,6 @@ function formatTime(isoString) {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
     });
   } catch {
     return '';
@@ -19,43 +18,46 @@ export function MessageBubble({ message }) {
   const isUser = role === 'user';
 
   return (
-    <div
-      className={`flex animate-fadeIn ${isUser ? 'justify-end' : 'justify-start'} mb-3`}
-    >
-      {/* Assistant avatar */}
-      {!isUser && (
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-brand/20 border border-brand/30 flex items-center justify-center mr-2 mt-0.5">
-          <span className="text-brand text-xs font-bold">AI</span>
-        </div>
-      )}
-
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-[80%]`}>
+    <div className="animate-fadeIn px-1 py-1.5">
+      {/* Header row: avatar + name + timestamp */}
+      <div className={`flex items-center gap-2 mb-1 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+        {/* Avatar */}
         <div
           className={[
-            'px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words',
+            'flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold',
             isUser
-              ? 'bg-brand text-white rounded-tr-sm'
-              : 'bg-[#1e2130] text-slate-200 rounded-tl-sm border border-border-subtle',
+              ? 'bg-slate-700 border border-slate-600 text-slate-300'
+              : 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300',
           ].join(' ')}
         >
-          <span>
-            {content}
-          </span>
-          {isStreaming && (
-            <span className="typewriter-cursor" aria-hidden="true" />
-          )}
+          {isUser ? 'U' : 'A'}
         </div>
-        <span className="text-[10px] text-slate-600 mt-1 px-1 font-mono">
+
+        {/* Name */}
+        <span className="text-[11px] font-semibold text-slate-400">
+          {isUser ? 'User' : 'Aria'}
+        </span>
+
+        {/* Timestamp */}
+        <span className={`text-[10px] text-slate-600 font-mono ${isUser ? 'mr-auto' : 'ml-auto'}`}>
           {formatTime(timestamp)}
         </span>
       </div>
 
-      {/* User avatar */}
-      {isUser && (
-        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center ml-2 mt-0.5">
-          <span className="text-slate-300 text-xs font-bold">U</span>
+      {/* Bubble */}
+      <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+        <div
+          className={[
+            'px-3 py-2 rounded-xl text-[13px] leading-relaxed break-words max-w-[90%]',
+            isUser
+              ? 'bg-[#1a2035] border border-[#243050] text-slate-200 rounded-tr-sm'
+              : 'bg-[#161c2d] border border-[#1e2840] text-slate-200 rounded-tl-sm',
+          ].join(' ')}
+        >
+          {content}
+          {isStreaming && <span className="typewriter-cursor" aria-hidden="true" />}
         </div>
-      )}
+      </div>
     </div>
   );
 }

@@ -1,81 +1,146 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import useCallStore from '../store/callStore.js';
 
-/**
- * Hook that wraps the browser Web Speech API (SpeechSynthesis) for TTS.
- */
+const VOICE_PREFERENCES = [
+  'Google UK English Female',
+  'Microsoft Hazel',
+  'Microsoft Zira',
+  'Google US English',
+  'Samantha',
+  'Karen',
+  'Moira',
+];
+
+function pickVoice(voices) {
+  for (const name of VOICE_PREFERENCES) {
+    const match = voices.find((v) => v.name === name);
+    if (match) return match;
+  }
+  return (
+    voices.find((v) => v.lang === 'en-GB') ||
+    voices.find((v) => v.lang === 'en-US') ||
+    voices.find((v) => v.lang.startsWith('en')) ||
+    null
+  );
+}
+
 export function useTTS() {
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const utteranceRef = useRef(null);
-  const startTimeRef = useRef(null);
+  const utteranceRef   = useRef(null);
+  const startTimeRef   = useRef(null);
+  const voiceRef       = useRef(null);
+  const onEndCallbackRef = useRef(null);
+  // Chrome keepalive: Chrome pauses speechSynthesis after ~15s of inactivity
+  const keepAliveRef   = useRef(null);
 
   const { setActiveAgent, addTiming, addLog } = useCallStore();
 
-  const speak = useCallback(
-    (text) => {
-      if (!text || typeof text !== 'string' || text.trim() === '') return;
+  useEffect(() => {
+    const loadVoice = () => {
+      const voices = window.speechSynthesis?.getVoices() ?? [];
+      if (voices.length > 0) voiceRef.current = pickVoice(voices);
+    };
+    loadVoice();
+    window.speechSynthesis?.addEventListener('voiceschanged', loadVoice);
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', loadVoice);
+  }, []);
 
-      if (!window.speechSynthesis) {
-        addLog({ level: 'warn', message: 'TTS not supported in this browser' });
-        return;
-      }
+  // ── Internal: called when speech finishes (from onend OR fallback) ─
+  const handleSpeechEnd = useCallback((durationMs) => {
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
+    }
+    startTimeRef.current = null;
+    setIsSpeaking(false);
+    setActiveAgent(null);
+    addTiming({ agent: 'tts', durationMs: durationMs ?? 0 });
+    addLog({ level: 'info', message: `Aria done speaking — ${durationMs ?? 0}ms` });
 
-      // Cancel any in-progress speech
-      window.speechSynthesis.cancel();
+    // Fire the caller's onEnd callback
+    if (onEndCallbackRef.current) {
+      const cb = onEndCallbackRef.current;
+      onEndCallbackRef.current = null;
+      cb();
+    }
+  }, [setActiveAgent, addTiming, addLog]);
 
+  /**
+   * Speak text aloud.
+   * @param {string} text
+   * @param {() => void} [onEnd] — called when speech finishes (or is stopped)
+   */
+  const speak = useCallback((text, onEnd) => {
+    if (!text?.trim()) {
+      if (onEnd) onEnd();
+      return;
+    }
+    if (!window.speechSynthesis) {
+      addLog({ level: 'warn', message: 'TTS not supported in this browser' });
+      if (onEnd) onEnd();
+      return;
+    }
+
+    // Store callback before cancelling to avoid races
+    onEndCallbackRef.current = onEnd ?? null;
+
+    window.speechSynthesis.cancel();
+
+    // Chrome needs a tiny delay after cancel() before a new speak() works
+    setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(text);
       utteranceRef.current = utterance;
 
-      // Prefer a natural-sounding voice if available
-      const voices = window.speechSynthesis.getVoices();
-      const preferredVoice =
-        voices.find((v) => v.lang === 'en-US' && v.localService) ||
-        voices.find((v) => v.lang.startsWith('en')) ||
-        null;
-
-      if (preferredVoice) {
-        utterance.voice = preferredVoice;
-      }
-
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      if (voiceRef.current) utterance.voice = voiceRef.current;
+      utterance.rate   = 0.92;
+      utterance.pitch  = 0.95;
       utterance.volume = 1.0;
 
       utterance.onstart = () => {
         startTimeRef.current = performance.now();
         setIsSpeaking(true);
         setActiveAgent('tts');
-        addLog({ level: 'info', message: 'TTS speaking...' });
+        addLog({ level: 'info', message: 'Aria speaking...' });
+
+        // Chrome keepalive — pause/resume every 10s to prevent silent stall
+        keepAliveRef.current = setInterval(() => {
+          if (window.speechSynthesis.speaking) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          }
+        }, 10000);
       };
 
       utterance.onend = () => {
-        const durationMs = startTimeRef.current
+        const ms = startTimeRef.current
           ? Math.round(performance.now() - startTimeRef.current)
           : 0;
-        startTimeRef.current = null;
-        setIsSpeaking(false);
-        setActiveAgent(null);
-        addTiming({ agent: 'tts', durationMs });
-        addLog({ level: 'info', message: `TTS done — ${durationMs}ms` });
+        handleSpeechEnd(ms);
       };
 
       utterance.onerror = (event) => {
-        console.error('[useTTS] Speech error:', event);
-        startTimeRef.current = null;
-        setIsSpeaking(false);
-        setActiveAgent(null);
+        if (event.error === 'interrupted' || event.error === 'canceled') {
+          // Manual stop — do NOT fire onEnd (stop() handles cleanup)
+          return;
+        }
+        const ms = startTimeRef.current
+          ? Math.round(performance.now() - startTimeRef.current)
+          : 0;
         addLog({ level: 'error', message: `TTS error: ${event.error}` });
+        handleSpeechEnd(ms);
       };
 
       window.speechSynthesis.speak(utterance);
-    },
-    [setActiveAgent, addTiming, addLog]
-  );
+    }, 50);
+  }, [setActiveAgent, addLog, handleSpeechEnd]);
 
   const stop = useCallback(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (keepAliveRef.current) {
+      clearInterval(keepAliveRef.current);
+      keepAliveRef.current = null;
     }
+    onEndCallbackRef.current = null; // discard callback — caller is ending the call
+    window.speechSynthesis?.cancel();
     startTimeRef.current = null;
     setIsSpeaking(false);
     setActiveAgent(null);

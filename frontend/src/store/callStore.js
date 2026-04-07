@@ -77,18 +77,17 @@ const useCallStore = create((set, get) => ({
     })),
 
   // ─── Actions: Logs ───────────────────────────────────────────────
-  addLog: (log) =>
-    set((state) => ({
-      logs: [
-        ...state.logs,
-        {
-          id: log.id ?? generateLogId(),
-          level: log.level ?? 'info',
-          message: log.message,
-          timestamp: log.timestamp ?? new Date().toISOString(),
-        },
-      ],
-    })),
+  addLog: (log) => {
+    const entry = {
+      id: log.id ?? generateLogId(),
+      level: log.level ?? 'info',
+      message: log.message,
+      timestamp: log.timestamp ?? new Date().toISOString(),
+    };
+    const prefix = entry.level === 'error' ? '🔴' : entry.level === 'warn' ? '🟡' : '🟢';
+    console.log(`[CO] ${prefix} ${entry.timestamp.slice(11, 19)} ${entry.message}`);
+    set((state) => ({ logs: [...state.logs, entry] }));
+  },
 
   clearLogs: () => set({ logs: [] }),
 

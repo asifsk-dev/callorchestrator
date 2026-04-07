@@ -11,11 +11,17 @@ export default {
           light: '#818cf8',
         },
         surface: {
-          DEFAULT: '#161b27',
-          elevated: '#1e2535',
+          DEFAULT: '#111520',
+          elevated: '#161c2d',
         },
         border: {
-          subtle: '#2d3748',
+          subtle: '#1e2840',
+        },
+        cyan: {
+          glow: '#06b6d4',
+        },
+        bg: {
+          base: '#0a0d14',
         },
       },
       fontFamily: {
@@ -34,6 +40,12 @@ export default {
         'fadeIn': 'fadeIn 0.3s ease-out forwards',
         'blink': 'blink 1s ease-in-out infinite',
         'bounce-dot': 'bounceDot 1.4s ease-in-out infinite',
+        'radial-pulse': 'radialPulse 2s ease-in-out infinite',
+        'ring-expand': 'ringExpand 2s ease-out infinite',
+        'ring-expand-delay': 'ringExpand 2s ease-out infinite 0.7s',
+        'ring-expand-delay2': 'ringExpand 2s ease-out infinite 1.4s',
+        'spin-slow': 'spin 8s linear infinite',
+        'bar-wave': 'barWave 1.2s ease-in-out infinite',
       },
       keyframes: {
         waveform: {
@@ -51,6 +63,18 @@ export default {
         bounceDot: {
           '0%, 80%, 100%': { transform: 'translateY(0)', opacity: '0.4' },
           '40%': { transform: 'translateY(-6px)', opacity: '1' },
+        },
+        radialPulse: {
+          '0%, 100%': { transform: 'scale(1)', opacity: '0.7' },
+          '50%': { transform: 'scale(1.15)', opacity: '1' },
+        },
+        ringExpand: {
+          '0%': { transform: 'scale(0.8)', opacity: '0.6' },
+          '100%': { transform: 'scale(1.2)', opacity: '0' },
+        },
+        barWave: {
+          '0%, 100%': { transform: 'scaleY(0.3)' },
+          '50%': { transform: 'scaleY(1)' },
         },
       },
     },

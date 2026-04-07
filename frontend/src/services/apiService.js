@@ -66,14 +66,18 @@ export async function endCall(sessionId) {
  */
 export async function transcribeAudio(audioBlob, sessionId) {
   const formData = new FormData();
-  formData.append('audio', audioBlob, 'audio.webm');
+  // Silero VAD produces WAV (16kHz PCM); fallback name covers legacy webm blobs
+  const ext = audioBlob.type.includes('wav') ? 'wav' : 'webm';
+  formData.append('audio', audioBlob, `audio.${ext}`);
   formData.append('sessionId', sessionId);
 
   const res = await fetch(`${BASE_URL}/api/stt`, {
     method: 'POST',
     body: formData,
   });
-  return handleResponse(res);
+  const result = await handleResponse(res);
+  // Backend wraps response in { success, data: { transcript, durationMs } }
+  return result.data ?? result;
 }
 
 /**
